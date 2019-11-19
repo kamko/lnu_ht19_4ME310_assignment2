@@ -1,1 +1,6 @@
-# lnu_ht19_4ME310_assignment2
+# Assignment 2-  intelligent identification of data patterns
+- 4ME310 - Adaptive and Semantic Web
+- lnu.se
+
+## License
+[MIT](LICENSE)
