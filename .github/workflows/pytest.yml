@@ -11,11 +11,9 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-    container: docker.pkg.github.com/kamko/lnu_ht19_4me310_assignment2/ml-base
+    container: kamko/ml-base
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Install pytest
-      run: pip install pytest
-    - name: Run pytest
-      run: pytest
+      - uses: actions/checkout@v1
+      - name: Run pytest
+        run: pytest
