@@ -1,12 +1,17 @@
 name: Unit tests
 
-on: [push]
+on:
+  push:
+    paths:
+      - '.github/workflows/pytest.yml'
+      - 'src/**'
+      - 'test/**'
 
 jobs:
   build:
 
     runs-on: ubuntu-latest
-    container: fastar/ml-base:slim
+    container: docker.pkg.github.com/kamko/lnu_ht19_4me310_assignment2/ml-base
 
     steps:
     - uses: actions/checkout@v1
