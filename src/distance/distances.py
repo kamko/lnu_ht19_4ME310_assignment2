@@ -20,7 +20,11 @@ def euclidean_squared_distance(v1: pd.Series, v2: pd.Series) -> float:
 def manhattan_distance(v1: pd.Series, v2: pd.Series) -> float:
     _assert_equal_sizes(v1, v2)
 
-    pass
+    res = v1 - v2
+    res = res.abs()
+    res = res.sum()
+
+    return res
 
 
 def _assert_equal_sizes(v1: pd.Series, v2: pd.Series):
