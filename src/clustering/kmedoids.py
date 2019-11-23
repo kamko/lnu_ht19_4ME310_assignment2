@@ -2,7 +2,8 @@ from collections import OrderedDict
 from typing import Callable
 
 import pandas as pd
-import numpy as np
+
+import itertools
 
 
 class KMedoids:
@@ -10,65 +11,98 @@ class KMedoids:
     def __init__(self,
                  n_clusters: int,
                  distance_metric: Callable[[pd.Series, pd.Series], float],
+                 max_iter: int = 100,
                  random_state: int = None):
         self.k = n_clusters
         self.dst = distance_metric
+        self.max_iter = max_iter
         self.random_state = random_state
 
-        self._df = None
-        self.clusters = None
-        self.medoids_idx = None
+        self.final_medoids = None
 
-    def _initialize(self):
-        index = self._df.index.to_series()
+    def _initialize_random_medoids(self, df):
+        index = df.index.to_series()
         medoids = index.sample(self.k, random_state=self.random_state)
 
-        self.medoids_idx = medoids.to_list()
+        return set(medoids.to_list())
 
-    def _get_medoids(self):
-        return self._df[self._df.index.isin(self.medoids_idx)]
+    @staticmethod
+    def _get_medoids(df, medoids_idx):
+        return df[df.index.isin(medoids_idx)]
 
-    def _get_non_medoids(self):
-        return self._df[~self._df.index.isin(self.medoids_idx)]
+    @staticmethod
+    def _get_non_medoids(df, medoids_idx):
+        return df[~df.index.isin(medoids_idx)]
 
-    def _assign_to_clusters(self):
-        not_medoids = self._get_non_medoids()
-        medoids = self._get_medoids()
+    def _find_cluster(self, medoids, row):
+        distances = medoids.apply(lambda x: self.dst(x, row), axis=1)
+        medoid_idx = int(distances.idxmin())
 
-        def find_cluster(row):
-            distances = medoids.apply(lambda x: self.dst(x, row), axis=1)
-            medoid_idx = int(distances.idxmin())
+        return [str(medoid_idx)] + distances.to_list()
 
-            return [str(medoid_idx)] + distances.to_list()
+    def _assign_to_clusters(self, df, medoids_idx):
+        not_medoids = self._get_non_medoids(df, medoids_idx)
+        medoids = self._get_medoids(df, medoids_idx)
 
-        clusters = not_medoids.apply(find_cluster, axis=1)
-        self.clusters = pd.DataFrame.from_dict(OrderedDict(clusters)) \
+        clusters = not_medoids.apply(lambda row: self._find_cluster(medoids, row), axis=1)
+        df_clusters = pd.DataFrame.from_dict(OrderedDict(clusters)) \
             .transpose()
-        self.clusters.columns = ['medoid'] + [str(i) for i in medoids.index.to_list()]
+        df_clusters.columns = ['medoid'] + [str(i) for i in medoids.index.to_list()]
 
-    def _calculate_cost(self) -> float:
-        not_medoids = self._get_non_medoids()
+        return df_clusters
+
+    def _calculate_cost(self, df, df_clusters, medoids_idx) -> float:
+        not_medoids = self._get_non_medoids(df, medoids_idx)
 
         def distance_to_cluster(row) -> float:
             idx = row.name
-            r_cluster = self.clusters.loc[idx]
+            r_cluster = df_clusters.loc[idx]
 
             return r_cluster[r_cluster['medoid']]
 
         all_costs = not_medoids.apply(distance_to_cluster, axis=1)
         return all_costs.sum()
 
-    def fit(self, df: pd.DataFrame):
-        self._df = df
+    def fit(self, train_df: pd.DataFrame):
+        medoids_idx = self._initialize_random_medoids(train_df)
+        clusters = self._assign_to_clusters(train_df, medoids_idx)
+        current_cost = self._calculate_cost(train_df, clusters, medoids_idx)
 
-        self._initialize()
-        self._assign_to_clusters()
-        print(self._calculate_cost())
+        best_medoids_idx = medoids_idx
+        best_cost = current_cost
 
-        pass
+        iteration = 0
+        while True:
+            _non_medoids_idx = self._get_non_medoids(train_df, best_medoids_idx).index
+            possible_changes = itertools.product(medoids_idx, _non_medoids_idx)
+
+            change_happened = False
+            for m, nm in possible_changes:
+                _medoids_idx = best_medoids_idx.copy()
+
+                _medoids_idx.add(nm)
+                _medoids_idx.remove(m)
+
+                _clusters = self._assign_to_clusters(train_df, _medoids_idx)
+                _cost = self._calculate_cost(train_df, _clusters, _medoids_idx)
+
+                if best_cost > _cost:
+                    best_cost = _cost
+                    best_medoids_idx = _medoids_idx
+
+            if not change_happened:
+                break
+
+            iteration += 1
+
+        self.final_medoids = train_df.loc[best_medoids_idx]
 
     def predict(self, df: pd.DataFrame):
-        pass
+        if self.final_medoids is None:
+            raise Exception('fit must be called before predict')
+
+        results = df.apply(lambda row: self._find_cluster(self.final_medoids, row), axis=1)
+        return results.apply(lambda x: x[0])
 
 
 if __name__ == '__main__':
@@ -76,6 +110,9 @@ if __name__ == '__main__':
     import pandas as pd
 
     km = KMedoids(n_clusters=3, distance_metric=euclidean_distance, random_state=123)
-    df = pd.DataFrame({'a': [1, 2, 3, 4, 5], 'e': [10, 20, 30, 40, 50]})
+    dfx = pd.DataFrame({'a': [1, 2, 3, 4, 5], 'e': [10, 20, 30, 40, 50]})
 
-    km.fit(df)
+    km.fit(dfx)
+    r = km.predict(dfx)
+
+    print(r)
