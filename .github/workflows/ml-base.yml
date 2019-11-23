@@ -3,6 +3,7 @@ name: ml-base image
 on:
   push:
     paths:
+      - '.github/workflows/ml-base.yml'
       - 'dev/docker/ml-base/**'
 
 jobs:
@@ -16,7 +17,7 @@ jobs:
       - name: Build image and publish
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
-          name: kamko/lnu_ht19_4me310_assignment/ml-base
+          name: kamko/lnu_ht19_4me310_assignment2/ml-base
           username: kamko
           password: ${{ secrets.GITHUB_TOKEN }}
           workdir: dev/docker/ml-base
