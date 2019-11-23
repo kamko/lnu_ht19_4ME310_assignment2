@@ -16,7 +16,7 @@ jobs:
       - name: Build image and publish
         uses: elgohr/Publish-Docker-Github-Action@master
         with:
-          name: docker.pkg.github.com/kamko/lnu_ht19_4me310_assignment/ml-base
+          name: kamko/lnu_ht19_4me310_assignment/ml-base
           username: kamko
           password: ${{ secrets.GITHUB_TOKEN }}
           workdir: dev/docker/ml-base
