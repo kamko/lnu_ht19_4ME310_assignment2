@@ -14,7 +14,7 @@ class KMedoids:
                  max_iter: int = 100,
                  random_state: int = None):
         self.k = n_clusters
-        self.dst = distance_metric
+        self.calc_distance = distance_metric
         self.max_iter = max_iter
         self.random_state = random_state
 
@@ -35,7 +35,7 @@ class KMedoids:
         return df[~df.index.isin(medoids_idx)]
 
     def _find_cluster(self, medoids, row):
-        distances = medoids.apply(lambda x: self.dst(x, row), axis=1)
+        distances = medoids.apply(lambda x: self.calc_distance(x, row), axis=1)
         medoid_idx = int(distances.idxmin())
 
         return [str(medoid_idx)] + distances.to_list()
@@ -91,6 +91,9 @@ class KMedoids:
                     best_medoids_idx = _medoids_idx
 
             if not change_happened:
+                break
+
+            if iteration > self.max_iter:
                 break
 
             iteration += 1
