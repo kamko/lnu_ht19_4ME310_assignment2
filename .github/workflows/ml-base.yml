@@ -1,0 +1,24 @@
+name: ml-base image
+
+on:
+  push:
+    paths:
+      - 'dev/docker/ml-base/**'
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Build image and publish
+        uses: elgohr/Publish-Docker-Github-Action@master
+        with:
+          name: docker.pkg.github.com/kamko/lnu_ht19_4me310_assignment/ml-base
+          username: kamko
+          password: ${{ secrets.GITHUB_TOKEN }}
+          workdir: dev/docker/ml-base
+          registry: docker.pkg.github.com
+          snapshot: true
