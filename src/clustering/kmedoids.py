@@ -74,7 +74,7 @@ class KMedoids:
         iteration = 0
         while True:
             _non_medoids_idx = self._get_non_medoids(train_df, best_medoids_idx).index
-            possible_changes = itertools.product(medoids_idx, _non_medoids_idx)
+            possible_changes = itertools.product(best_medoids_idx, _non_medoids_idx)
 
             change_happened = False
             for m, nm in possible_changes:
