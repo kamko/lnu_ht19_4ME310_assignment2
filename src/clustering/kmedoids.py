@@ -1,7 +1,5 @@
-from collections import OrderedDict
-from typing import Callable
-
 import pandas as pd
+import numpy as np
 
 import itertools
 
@@ -9,10 +7,10 @@ import itertools
 class KMedoids:
 
     def __init__(self,
-                 n_clusters: int,
-                 distance_metric: Callable[[pd.Series, pd.Series], float],
-                 max_iter: int = 100,
-                 random_state: int = None):
+                 n_clusters,
+                 distance_metric,
+                 max_iter=100,
+                 random_state=None):
         self.k = n_clusters
         self.calc_distance = distance_metric
         self.max_iter = max_iter
@@ -35,67 +33,62 @@ class KMedoids:
         return df[~df.index.isin(medoids_idx)]
 
     def _find_cluster(self, medoids, row):
-        distances = medoids.apply(lambda x: self.calc_distance(x, row), axis=1)
+        distances = medoids.apply(lambda x: self.calc_distance(x.values, row.values, axis=0), axis=1)
         medoid_idx = int(distances.idxmin())
 
-        return [str(medoid_idx)] + distances.to_list()
+        return np.insert(distances.values, 0, medoid_idx)
 
     def _assign_to_clusters(self, df, medoids_idx):
         not_medoids = self._get_non_medoids(df, medoids_idx)
         medoids = self._get_medoids(df, medoids_idx)
 
-        clusters = not_medoids.apply(lambda row: self._find_cluster(medoids, row), axis=1)
-        df_clusters = pd.DataFrame.from_dict(OrderedDict(clusters)) \
-            .transpose()
-        df_clusters.columns = ['medoid'] + [str(i) for i in medoids.index.to_list()]
+        res = []
+        for i in medoids.values:
+            res.append(self.calc_distance(not_medoids, i, axis=1))
+        return pd.DataFrame(res)
 
-        return df_clusters
-
-    def _calculate_cost(self, df, df_clusters, medoids_idx) -> float:
-        not_medoids = self._get_non_medoids(df, medoids_idx)
-
-        def distance_to_cluster(row) -> float:
-            idx = row.name
-            r_cluster = df_clusters.loc[idx]
-
-            return r_cluster[r_cluster['medoid']]
-
-        all_costs = not_medoids.apply(distance_to_cluster, axis=1)
-        return all_costs.sum()
+    @staticmethod
+    def _calculate_cost(df_clusters):
+        return df_clusters.min(axis=1).sum()
 
     def fit(self, train_df: pd.DataFrame):
         medoids_idx = self._initialize_random_medoids(train_df)
         clusters = self._assign_to_clusters(train_df, medoids_idx)
-        current_cost = self._calculate_cost(train_df, clusters, medoids_idx)
+        current_cost = self._calculate_cost(clusters)
 
         best_medoids_idx = medoids_idx
         best_cost = current_cost
 
-        iteration = 0
+        iteration = 1
         while True:
             _non_medoids_idx = self._get_non_medoids(train_df, best_medoids_idx).index
-            possible_changes = itertools.product(best_medoids_idx, _non_medoids_idx)
+
+            _original_medoids_idx = best_medoids_idx
+            possible_changes = itertools.product(_original_medoids_idx, _non_medoids_idx)
 
             change_happened = False
             for m, nm in possible_changes:
-                _medoids_idx = best_medoids_idx.copy()
+                _medoids_idx = _original_medoids_idx.copy()
 
                 _medoids_idx.add(nm)
                 _medoids_idx.remove(m)
 
                 _clusters = self._assign_to_clusters(train_df, _medoids_idx)
-                _cost = self._calculate_cost(train_df, _clusters, _medoids_idx)
+                _cost = self._calculate_cost(_clusters)
 
+                # print(best_cost, _cost)
                 if best_cost > _cost:
                     best_cost = _cost
                     best_medoids_idx = _medoids_idx
+                    change_happened = True
 
             if not change_happened:
                 break
 
-            if iteration > self.max_iter:
+            if iteration >= self.max_iter:
                 break
 
+            print(f'iteration {iteration} finished')
             iteration += 1
 
         self.final_medoids = train_df.loc[best_medoids_idx]
@@ -109,10 +102,10 @@ class KMedoids:
 
 
 if __name__ == '__main__':
-    from src.distance import euclidean_distance
+    from src.distance import euclidean_squared_distance
     import pandas as pd
 
-    km = KMedoids(n_clusters=3, distance_metric=euclidean_distance, random_state=123)
+    km = KMedoids(n_clusters=3, distance_metric=euclidean_squared_distance, random_state=123)
     dfx = pd.DataFrame({'a': [1, 2, 3, 4, 5], 'e': [10, 20, 30, 40, 50]})
 
     km.fit(dfx)
