@@ -30,11 +30,7 @@ class KMedoids:
         not_medoids = np.delete(df.to_numpy(), medoids_idx, axis=0)
         medoids = np_df[medoids_idx]
 
-        res = []
-        for i, v in zip(medoids_idx, medoids):
-            res.append(self.calc_distance(not_medoids, v, axis=1))
-
-        cost_table = np.concatenate([i for i in res]) \
+        cost_table = np.concatenate([self.calc_distance(not_medoids, m, axis=1) for m in medoids]) \
             .reshape(len(medoids_idx), len(not_medoids))
         return cost_table
 
