@@ -42,6 +42,18 @@ class KMedoids:
         cost_table = self._assign_to_clusters(train_df, medoids_idx)
         return np.min(cost_table, axis=1).sum(-1)
 
+    @staticmethod
+    def _get_possible_changes(medoids_idx, non_medoids_idx):
+        possible_changes = itertools.product(medoids_idx, non_medoids_idx)
+
+        def new_idx_list(m, nm):
+            res = list(medoids_idx)
+            res.append(nm)
+            res.remove(m)
+            return res
+
+        return (new_idx_list(m, nm) for m, nm in possible_changes)
+
     def fit(self, train_df: pd.DataFrame):
         best_medoids_idx = self._initialize_random_medoids(train_df)
         best_cost = self._calculate_cost(train_df, best_medoids_idx)
@@ -51,13 +63,8 @@ class KMedoids:
             _non_medoids_idx = np.delete(train_df.index.to_numpy(), best_medoids_idx)
             _current_medoids_idx = best_medoids_idx
 
-            possible_changes = itertools.product(_current_medoids_idx, _non_medoids_idx)
             change_happened = False
-            for m, nm in possible_changes:
-
-                _medoids_idx = list(_current_medoids_idx) \
-                    .append(nm) \
-                    .remove(m)
+            for _medoids_idx in KMedoids._get_possible_changes(_current_medoids_idx, _non_medoids_idx):
 
                 _cost = self._calculate_cost(train_df, _medoids_idx)
 
@@ -75,19 +82,27 @@ class KMedoids:
             print(f'iteration {iteration} finished')
             iteration += 1
 
-        print(f'Finished with best cost {best_cost}. Final medoids:')
-        print(self.final_medoids)
         self.final_medoids = train_df.loc[best_medoids_idx]
+        print(f'Finished with best cost {best_cost}.')
+        print('Final medoids:')
+        print(self.final_medoids)
 
-    def _find_cluster(self, medoids, row):
-        distances = medoids.apply(lambda x: self.calc_distance(x.values, row.values, axis=0), axis=1)
+    def _assign_to_cluster(self, row):
+        distances = self.final_medoids.apply(lambda x: self.calc_distance(x.values, row.values, axis=0), axis=1)
         medoid_idx = int(distances.idxmin())
 
         return np.insert(distances.values, 0, medoid_idx)
+
+    @staticmethod
+    def _map_labels_to_nice_number(labels):
+        mapping = {original: new for original, new in zip(labels.unique(), itertools.count())}
+        return labels.map(mapping)
 
     def predict(self, df: pd.DataFrame):
         if self.final_medoids is None:
             raise Exception('fit must be called before predict')
 
-        results = df.apply(lambda row: self._find_cluster(self.final_medoids, row), axis=1)
-        return results.apply(lambda x: x[0])
+        results = df.apply(lambda row: self._assign_to_cluster(row), axis=1)
+        labels = results.apply(lambda x: x[0])
+
+        return self._map_labels_to_nice_number(labels)
