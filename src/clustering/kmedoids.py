@@ -24,7 +24,7 @@ class KMedoids:
 
         return medoids.to_list()
 
-    def _assign_to_clusters(self, df, medoids_idx):
+    def _calculate_distances_to_medoids(self, df, medoids_idx):
         np_df = df.to_numpy()
 
         not_medoids = np.delete(df.to_numpy(), medoids_idx, axis=0)
@@ -35,7 +35,7 @@ class KMedoids:
         return cost_table
 
     def _calculate_cost(self, train_df, medoids_idx):
-        cost_table = self._assign_to_clusters(train_df, medoids_idx)
+        cost_table = self._calculate_distances_to_medoids(train_df, medoids_idx)
         return np.min(cost_table, axis=1).sum(-1)
 
     @staticmethod
