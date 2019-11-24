@@ -22,61 +22,45 @@ class KMedoids:
         index = df.index.to_series()
         medoids = index.sample(self.k, random_state=self.random_state)
 
-        return set(medoids.to_list())
-
-    @staticmethod
-    def _get_medoids(df, medoids_idx):
-        return df[df.index.isin(medoids_idx)]
-
-    @staticmethod
-    def _get_non_medoids(df, medoids_idx):
-        return df[~df.index.isin(medoids_idx)]
-
-    def _find_cluster(self, medoids, row):
-        distances = medoids.apply(lambda x: self.calc_distance(x.values, row.values, axis=0), axis=1)
-        medoid_idx = int(distances.idxmin())
-
-        return np.insert(distances.values, 0, medoid_idx)
+        return medoids.to_list()
 
     def _assign_to_clusters(self, df, medoids_idx):
-        not_medoids = self._get_non_medoids(df, medoids_idx)
-        medoids = self._get_medoids(df, medoids_idx)
+        np_df = df.to_numpy()
+
+        not_medoids = np.delete(df.to_numpy(), medoids_idx, axis=0)
+        medoids = np_df[medoids_idx]
 
         res = []
-        for i in medoids.values:
-            res.append(self.calc_distance(not_medoids, i, axis=1))
-        return pd.DataFrame(res)
+        for i, v in zip(medoids_idx, medoids):
+            res.append(self.calc_distance(not_medoids, v, axis=1))
 
-    @staticmethod
-    def _calculate_cost(df_clusters):
-        return df_clusters.min(axis=1).sum()
+        cost_table = np.concatenate([i for i in res]) \
+            .reshape(len(medoids_idx), len(not_medoids))
+        return cost_table
+
+    def _calculate_cost(self, train_df, medoids_idx):
+        cost_table = self._assign_to_clusters(train_df, medoids_idx)
+        return np.min(cost_table, axis=1).sum(-1)
 
     def fit(self, train_df: pd.DataFrame):
-        medoids_idx = self._initialize_random_medoids(train_df)
-        clusters = self._assign_to_clusters(train_df, medoids_idx)
-        current_cost = self._calculate_cost(clusters)
-
-        best_medoids_idx = medoids_idx
-        best_cost = current_cost
+        best_medoids_idx = self._initialize_random_medoids(train_df)
+        best_cost = self._calculate_cost(train_df, best_medoids_idx)
 
         iteration = 1
         while True:
-            _non_medoids_idx = self._get_non_medoids(train_df, best_medoids_idx).index
+            _non_medoids_idx = np.delete(train_df.index.to_numpy(), best_medoids_idx)
+            _current_medoids_idx = best_medoids_idx
 
-            _original_medoids_idx = best_medoids_idx
-            possible_changes = itertools.product(_original_medoids_idx, _non_medoids_idx)
-
+            possible_changes = itertools.product(_current_medoids_idx, _non_medoids_idx)
             change_happened = False
             for m, nm in possible_changes:
-                _medoids_idx = _original_medoids_idx.copy()
 
-                _medoids_idx.add(nm)
-                _medoids_idx.remove(m)
+                _medoids_idx = list(_current_medoids_idx) \
+                    .append(nm) \
+                    .remove(m)
 
-                _clusters = self._assign_to_clusters(train_df, _medoids_idx)
-                _cost = self._calculate_cost(_clusters)
+                _cost = self._calculate_cost(train_df, _medoids_idx)
 
-                # print(best_cost, _cost)
                 if best_cost > _cost:
                     best_cost = _cost
                     best_medoids_idx = _medoids_idx
@@ -91,7 +75,15 @@ class KMedoids:
             print(f'iteration {iteration} finished')
             iteration += 1
 
+        print(f'Finished with best cost {best_cost}. Final medoids:')
+        print(self.final_medoids)
         self.final_medoids = train_df.loc[best_medoids_idx]
+
+    def _find_cluster(self, medoids, row):
+        distances = medoids.apply(lambda x: self.calc_distance(x.values, row.values, axis=0), axis=1)
+        medoid_idx = int(distances.idxmin())
+
+        return np.insert(distances.values, 0, medoid_idx)
 
     def predict(self, df: pd.DataFrame):
         if self.final_medoids is None:
@@ -99,16 +91,3 @@ class KMedoids:
 
         results = df.apply(lambda row: self._find_cluster(self.final_medoids, row), axis=1)
         return results.apply(lambda x: x[0])
-
-
-if __name__ == '__main__':
-    from src.distance import euclidean_squared_distance
-    import pandas as pd
-
-    km = KMedoids(n_clusters=3, distance_metric=euclidean_squared_distance, random_state=123)
-    dfx = pd.DataFrame({'a': [1, 2, 3, 4, 5], 'e': [10, 20, 30, 40, 50]})
-
-    km.fit(dfx)
-    r = km.predict(dfx)
-
-    print(r)
