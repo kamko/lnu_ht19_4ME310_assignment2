@@ -31,7 +31,7 @@ class KMedoids:
         medoids = np_df[medoids_idx]
 
         cost_table = np.concatenate([self.calc_distance(not_medoids, m, axis=1) for m in medoids]) \
-            .reshape(len(medoids_idx), len(not_medoids))
+            .reshape(len(medoids), len(not_medoids))
         return cost_table
 
     def _calculate_cost(self, train_df, medoids_idx):
