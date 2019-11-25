@@ -4,7 +4,7 @@ import numpy as np
 import itertools
 
 
-class KMedoids:
+class PAM:
 
     def __init__(self,
                  n_clusters,
@@ -60,7 +60,7 @@ class KMedoids:
             _current_medoids_idx = best_medoids_idx
 
             change_happened = False
-            for _medoids_idx in KMedoids._get_possible_changes(_current_medoids_idx, _non_medoids_idx):
+            for _medoids_idx in PAM._get_possible_changes(_current_medoids_idx, _non_medoids_idx):
 
                 _cost = self._calculate_cost(train_df, _medoids_idx)
 
