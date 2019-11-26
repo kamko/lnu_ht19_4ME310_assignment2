@@ -12,7 +12,7 @@ def to_numpy(obj):
     if isinstance(obj, np.ndarray):
         return obj
 
-    np.array(obj)
+    return np.array(obj)
 
 
 def np_rows(arr):
