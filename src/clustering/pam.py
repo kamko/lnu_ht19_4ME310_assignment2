@@ -1,42 +1,42 @@
-import pandas as pd
+import itertools
+
 import numpy as np
 
-import itertools
+from src.log_util import log
+from src.numpy_util import np_rows
+from src.numpy_util import random_from_range
+from src.numpy_util import to_numpy
 
 
 class PAM:
 
     def __init__(self,
                  n_clusters,
-                 distance_metric,
+                 distance,
                  max_iter=100,
-                 random_state=None):
+                 random_state=None,
+                 verbose=True):
         self.k = n_clusters
-        self.calc_distance = distance_metric
+        self.calc_distance = distance
         self.max_iter = max_iter
         self.random_state = random_state
+        self.verbose = verbose
 
         self.final_medoids = None
 
-    def _initialize_random_medoids(self, df):
-        index = df.index.to_series()
-        medoids = index.sample(self.k, random_state=self.random_state)
+    def _get_random_medoids(self, data):
+        return random_from_range(self.k, np_rows(data), self.random_state)
 
-        return medoids.to_list()
+    def _calculate_distances_to_medoids(self, data, medoids):
+        return np.concatenate([self.calc_distance(data, m, axis=1) for m in medoids]) \
+            .reshape(len(medoids), len(data))
 
-    def _calculate_distances_to_medoids(self, df, medoids_idx):
-        np_df = df.to_numpy()
+    def _calculate_cost(self, data, medoids_idx):
+        not_medoids = np.delete(data, medoids_idx, axis=0)
+        medoids = data[medoids_idx]
 
-        not_medoids = np.delete(df.to_numpy(), medoids_idx, axis=0)
-        medoids = np_df[medoids_idx]
-
-        cost_table = np.concatenate([self.calc_distance(not_medoids, m, axis=1) for m in medoids]) \
-            .reshape(len(medoids), len(not_medoids))
-        return cost_table
-
-    def _calculate_cost(self, train_df, medoids_idx):
-        cost_table = self._calculate_distances_to_medoids(train_df, medoids_idx)
-        return np.min(cost_table, axis=1).sum(-1)
+        cost_table = self._calculate_distances_to_medoids(not_medoids, medoids)
+        return np.min(cost_table, axis=0).sum(-1)
 
     @staticmethod
     def _get_possible_changes(medoids_idx, non_medoids_idx):
@@ -50,20 +50,23 @@ class PAM:
 
         return (new_idx_list(m, nm) for m, nm in possible_changes)
 
-    def fit(self, train_df: pd.DataFrame):
-        best_medoids_idx = self._initialize_random_medoids(train_df)
-        best_cost = self._calculate_cost(train_df, best_medoids_idx)
+    def fit(self, data):
+        data = to_numpy(data)
+
+        best_medoids_idx = self._get_random_medoids(data)
+        best_cost = self._calculate_cost(data, best_medoids_idx)
+
+        whole_index = np.arange(np_rows(data))
 
         iteration = 1
         while True:
-            _non_medoids_idx = np.delete(train_df.index.to_numpy(), best_medoids_idx)
+            _non_medoids_idx = np.delete(whole_index, best_medoids_idx)
             _current_medoids_idx = best_medoids_idx
 
             change_happened = False
             for _medoids_idx in PAM._get_possible_changes(_current_medoids_idx, _non_medoids_idx):
 
-                _cost = self._calculate_cost(train_df, _medoids_idx)
-
+                _cost = self._calculate_cost(data, _medoids_idx)
                 if best_cost > _cost:
                     best_cost = _cost
                     best_medoids_idx = _medoids_idx
@@ -75,30 +78,17 @@ class PAM:
             if iteration >= self.max_iter:
                 break
 
-            print(f'iteration {iteration} finished')
+            log(f'iteration {iteration} finished', self.verbose)
             iteration += 1
 
-        self.final_medoids = train_df.loc[best_medoids_idx]
-        print(f'Finished with best cost {best_cost}.')
-        print('Final medoids:')
-        print(self.final_medoids)
+        self.final_medoids = data[best_medoids_idx]
+        log(f'Finished with best cost {best_cost}.', self.verbose)
+        log('Final medoids:', self.verbose)
+        log(self.final_medoids, self.verbose)
 
-    def _assign_to_cluster(self, row):
-        distances = self.final_medoids.apply(lambda x: self.calc_distance(x.values, row.values, axis=0), axis=1)
-        medoid_idx = int(distances.idxmin())
-
-        return np.insert(distances.values, 0, medoid_idx)
-
-    @staticmethod
-    def _map_labels_to_nice_number(labels):
-        mapping = {original: new for original, new in zip(labels.unique(), itertools.count())}
-        return labels.map(mapping)
-
-    def predict(self, df: pd.DataFrame):
+    def predict(self, data):
         if self.final_medoids is None:
             raise Exception('fit must be called before predict')
 
-        results = df.apply(lambda row: self._assign_to_cluster(row), axis=1)
-        labels = results.apply(lambda x: x[0])
-
-        return self._map_labels_to_nice_number(labels)
+        distances = self._calculate_distances_to_medoids(data, self.final_medoids)
+        return np.argmin(distances, axis=0)

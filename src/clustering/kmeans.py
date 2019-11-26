@@ -1,33 +1,30 @@
-import pandas as pd
 import numpy as np
 
-
-def np_rows(arr):
-    return np.shape(arr)[0]
-
-
-def np_cols(arr):
-    return np.shape(arr)[1]
+from src.log_util import log
+from src.numpy_util import np_cols
+from src.numpy_util import np_rows
+from src.numpy_util import random_from_range
+from src.numpy_util import to_numpy
 
 
 class KMeans:
 
     def __init__(self, n_clusters, distance,
-                 tolerance=0.0001, max_iter=100, random_state=None):
+                 tolerance=0.0001, max_iter=100,
+                 random_state=None,
+                 verbose=True):
         self.k = n_clusters
         self.calc_distance = distance
 
         self.tolerance = tolerance
         self.max_iter = max_iter
         self.random_state = random_state
+        self.verbose = verbose
 
         self.final_centroids = None
 
     def _initialize(self, data):
-        arr = np.arange(np_rows(data))
-        np.random.seed(self.random_state)
-        choice = np.random.choice(arr, size=self.k, replace=False)
-
+        choice = random_from_range(self.k, np_rows(data), self.random_state)
         return data[choice]
 
     def _assign_to_clusters(self, rows, centroids):
@@ -46,37 +43,35 @@ class KMeans:
         return np.array(centroids) \
             .reshape(self.k, np_cols(data))
 
-    def fit(self, df: pd.DataFrame):
-        np_df = df.to_numpy()
+    def fit(self, data):
+        data = to_numpy(data)
 
-        centroids = self._initialize(np_df)
+        centroids = self._initialize(data)
         inertia = None
 
-        print(centroids)
-
         for i in range(self.max_iter):
-            assignments, _inertia = self._assign_to_clusters(np_df, centroids)
-            _centroids = self._find_new_centroids(np_df, assignments)
+            assignments, _inertia = self._assign_to_clusters(data, centroids)
+            _centroids = self._find_new_centroids(data, assignments)
 
             if inertia is not None \
                     and (inertia - _inertia) < self.tolerance:
-                print('Finished: Inertia change lower than tolerance')
+                log('Finished: Inertia change lower than tolerance', self.verbose)
                 break
 
             if np.array_equal(centroids, _centroids):
-                print('Finished: No changes in centroids')
+                log('Finished: No changes in centroids', self.verbose)
                 break
 
             inertia = _inertia
             centroids = _centroids
 
-            print(f'Iteration {i + 1} finished')
+            log(f'Iteration {i + 1} finished', self.verbose)
 
-        print("Finished.")
+        log("Finished.", self.verbose)
         self.final_centroids = centroids
 
-    def predict(self, df: pd.DataFrame):
+    def predict(self, data):
         if self.final_centroids is None:
             raise RuntimeError('fit must be called before predict')
 
-        return self._assign_to_clusters(df.to_numpy(), self.final_centroids)[0]
+        return self._assign_to_clusters(to_numpy(data), self.final_centroids)[0]
