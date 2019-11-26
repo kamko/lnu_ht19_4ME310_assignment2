@@ -2,6 +2,14 @@ import pandas as pd
 import numpy as np
 
 
+def np_rows(arr):
+    return np.shape(arr)[0]
+
+
+def np_cols(arr):
+    return np.shape(arr)[1]
+
+
 class KMeans:
 
     def __init__(self, n_clusters, distance,
@@ -16,7 +24,7 @@ class KMeans:
         self.final_centroids = None
 
     def _initialize(self, data):
-        arr = np.arange(np.shape(data)[0])
+        arr = np.arange(np_rows(data))
         np.random.seed(self.random_state)
         choice = np.random.choice(arr, size=self.k, replace=False)
 
@@ -25,7 +33,7 @@ class KMeans:
     def _assign_to_clusters(self, rows, centroids):
 
         distances = np.concatenate([self.calc_distance(rows, c, axis=1) for c in centroids]) \
-            .reshape(np.shape(centroids)[0], np.shape(rows)[0])
+            .reshape(np_rows(centroids), np_rows(rows))
 
         return np.argmin(distances, axis=0), np.sum(distances, axis=1).sum()
 
@@ -36,7 +44,7 @@ class KMeans:
             centroids.append(np.mean(in_cluster, axis=0))
 
         return np.array(centroids) \
-            .reshape(self.k, np.shape(data)[1])
+            .reshape(self.k, np_cols(data))
 
     def fit(self, df: pd.DataFrame):
         np_df = df.to_numpy()
