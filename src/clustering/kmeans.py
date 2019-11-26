@@ -54,7 +54,7 @@ class KMeans:
             _centroids = self._find_new_centroids(data, assignments)
 
             if inertia is not None \
-                    and (inertia - _inertia) < self.tolerance:
+                    and (np.abs(inertia - _inertia)) < self.tolerance:
                 log('Finished: Inertia change lower than tolerance', self.verbose)
                 break
 
@@ -65,7 +65,7 @@ class KMeans:
             inertia = _inertia
             centroids = _centroids
 
-            log(f'Iteration {i + 1} finished', self.verbose)
+            log(f'Iteration {i + 1} finished. Inertia: {inertia}', self.verbose)
 
         log("Finished.", self.verbose)
         self.final_centroids = centroids
