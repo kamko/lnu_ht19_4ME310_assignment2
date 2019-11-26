@@ -60,11 +60,11 @@ class KMeans:
 
             if inertia is not None \
                     and (inertia - _inertia) < self.tolerance:
-                print('Inertia change lower than tolerance')
+                print('Finished: Inertia change lower than tolerance')
                 break
 
             if np.array_equal(centroids, _centroids):
-                print('No changes in centroids')
+                print('Finished: No changes in centroids')
                 break
 
             inertia = _inertia
@@ -72,6 +72,7 @@ class KMeans:
 
             print(f'Iteration {i + 1} finished')
 
+        print("Finished.")
         self.final_centroids = centroids
 
     def predict(self, df: pd.DataFrame):
