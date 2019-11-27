@@ -22,6 +22,7 @@ class KMeans:
         self.verbose = verbose
 
         self.final_centroids = None
+        self.inertia = None
 
     def _initialize(self, data):
         choice = random_from_range(self.k, np_rows(data), self.random_state)
@@ -32,7 +33,7 @@ class KMeans:
         distances = np.concatenate([self.calc_distance(rows, c, axis=1) for c in centroids]) \
             .reshape(np_rows(centroids), np_rows(rows))
 
-        return np.argmin(distances, axis=0), np.sum(distances, axis=1).sum()
+        return np.argmin(distances, axis=0), np.min(distances, axis=0).sum()
 
     def _find_new_centroids(self, data, assignments):
         centroids = []
@@ -69,9 +70,20 @@ class KMeans:
 
         log("Finished.", self.verbose)
         self.final_centroids = centroids
+        self.inertia = inertia
 
     def predict(self, data):
         if self.final_centroids is None:
             raise RuntimeError('fit must be called before predict')
 
         return self._assign_to_clusters(to_numpy(data), self.final_centroids)[0]
+
+import pandas as pd
+from sklearn import datasets
+n_samples = 1200
+blobs = datasets.make_blobs(n_samples=n_samples, n_features=2, centers=4)
+df = pd.DataFrame(blobs[0], columns=['x', 'y'])
+
+import src.distance
+km = KMeans(n_clusters=3, distance=src.distance.euclidean_distance)
+km.fit(df)
