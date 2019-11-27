@@ -77,13 +77,3 @@ class KMeans:
             raise RuntimeError('fit must be called before predict')
 
         return self._assign_to_clusters(to_numpy(data), self.final_centroids)[0]
-
-import pandas as pd
-from sklearn import datasets
-n_samples = 1200
-blobs = datasets.make_blobs(n_samples=n_samples, n_features=2, centers=4)
-df = pd.DataFrame(blobs[0], columns=['x', 'y'])
-
-import src.distance
-km = KMeans(n_clusters=3, distance=src.distance.euclidean_distance)
-km.fit(df)
